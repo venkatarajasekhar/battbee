@@ -18,24 +18,7 @@ void ShowBuffer(uint8 *buffer, uint16 size)
 
 void SendByte(uint8 value)
 {
-	Serial.println(value, HEX);
 	Serial1.write(value);
-}
-
-void EscapeAndSendByte(uint8 value)
-{
-	if ((value == 0x11) ||	// XON
-		(value == 0x13) ||	// XOFF
-		(value == 0x7d) ||	// Escape
-		(value == 0x7e))	// Frame delimiter
-	{
-		SendByte(0x7d);
-		SendByte(value ^ 0x20);
-	}
-	else
-	{
-		SendByte(value);
-	}
 }
 
 uint8 sndBuffer[100];
@@ -46,17 +29,17 @@ void SendFrame()
 	// Send frame delimiter
 	SendByte(0x7e);
 	// Send frame size
-	EscapeAndSendByte(((uint8 *)&sndBufferSize)[1]);
-	EscapeAndSendByte(((uint8 *)&sndBufferSize)[0]);
+	SendByte(((uint8 *)&sndBufferSize)[1]);
+	SendByte(((uint8 *)&sndBufferSize)[0]);
 	// Send frame data
 	uint8 checksum = 0;
 	for (uint16 i = 0; i < sndBufferSize; i++)
 	{
-		EscapeAndSendByte(sndBuffer[i]);
+		SendByte(sndBuffer[i]);
 		checksum += sndBuffer[i];
 	}
 	// Send checksum
-	EscapeAndSendByte(0xff - checksum);
+	SendByte(0xff - checksum);
 }
 
 // --------- Basic receiving ---------
@@ -73,15 +56,6 @@ uint8 ReceiveByte()
 	}
 }
 
-uint8 ReceiveAndDeEscape()
-{
-	uint8 value = ReceiveByte();
-	if (value == 0x7d)
-		return ReceiveByte() ^ 0x20;
-	else
-		return value;
-}
-
 uint8 rcvBuffer[100];
 uint16 rcvBufferSize;
 
@@ -92,17 +66,17 @@ void ReceiveFrame()
 	// Omit all bytes before frame delimiter
 	while (ReceiveByte() != 0x7e);
 	// Receive frame size
-	((uint8 *)&rcvBufferSize)[1] = ReceiveAndDeEscape();
-	((uint8 *)&rcvBufferSize)[0] = ReceiveAndDeEscape();
+	((uint8 *)&rcvBufferSize)[1] = ReceiveByte();
+	((uint8 *)&rcvBufferSize)[0] = ReceiveByte();
 	// Receive frame data
 	uint8 checksum = 0;
 	for (uint16 i = 0; i < rcvBufferSize; i++)
 	{
-		rcvBuffer[i] = ReceiveAndDeEscape();
+		rcvBuffer[i] = ReceiveByte();
 		checksum += rcvBuffer[i];
 	}
 	// Receive and check checksum
-	checksum += ReceiveAndDeEscape();
+	checksum += ReceiveByte();
 	if (checksum != 0xff)
 		rcvBufferSize = 0;
 }
@@ -201,7 +175,7 @@ void setup()
 
 void loop()
 {
-	TransmitStr("I am alive", 0x0013A20040B79FDFull);
+	TransmitStr("AAA");
 	delay(3000);
 }
 
