@@ -1,50 +1,54 @@
 #include <Arduino.h>
 
-#include "Port.h"
 
-void ShowBuffer(uint8 *buffer, uint16 size)
+
+#define StartDelimiter 0x7e
+
+// MSB..LSB addressed by index 0..n; modify for big/small endian systems
+#define GET_BYTE(X, I)		(((X) >> ((sizeof(X) - (I) - 1) << 3)) & 0xff)
+#define SET_BYTE(X, I, B)	((X) |= ((B) << ((sizeof(X) - (I) - 1) << 3)))
+
+uint8_t frameID = 1;
+#define UPDATE_FRAMEID()	{frameID = (frameID == 0xff) ? 1 : (frameID + 1);}
+
+
+
+void HexDump(uint8_t *buf, uint16_t len)
 {
-	for (unsigned int i = 0; i < size; i++)
+	for (uint16_t i = 0; i < len; i++)
 	{
-		Serial.print(buffer[i], HEX);
+		Serial.print(buf[i], HEX);
 		Serial.print(" ");
 	}
 	Serial.print(" -> ");
-	Serial.print(size);
+	Serial.print(len);
 	Serial.println(" bytes in total");
 }
 
-// --------- Basic sending ---------
-
-void SendByte(uint8 value)
+void SendByte(uint8_t value)
 {
 	Serial1.write(value);
 }
 
-uint8 sndBuffer[100];
-uint16 sndBufferSize;
-
-void SendFrame()
+void SendFrame(uint8_t *buf, uint16_t len)
 {
 	// Send frame delimiter
-	SendByte(0x7e);
+	SendByte(StartDelimiter);
 	// Send frame size
-	SendByte(((uint8 *)&sndBufferSize)[1]);
-	SendByte(((uint8 *)&sndBufferSize)[0]);
+	SendByte(GET_BYTE(len, 0));
+	SendByte(GET_BYTE(len, 1));
 	// Send frame data
-	uint8 checksum = 0;
-	for (uint16 i = 0; i < sndBufferSize; i++)
+	uint8_t checksum = 0;
+	for (uint16_t i = 0; i < len; i++)
 	{
-		SendByte(sndBuffer[i]);
-		checksum += sndBuffer[i];
+		SendByte(buf[i]);
+		checksum += buf[i];
 	}
 	// Send checksum
-	SendByte(0xff - checksum);
+	SendByte(((uint8_t)0xff) - checksum);
 }
 
-// --------- Basic receiving ---------
-
-uint8 ReceiveByte()
+uint8_t ReceiveByte()
 {
 	while (true)
 	{
@@ -52,130 +56,87 @@ uint8 ReceiveByte()
 		if (value == -1)
 			delay(10);
 		else
-			return (uint8)value;
+			return (uint8_t)value;
 	}
 }
 
-uint8 rcvBuffer[100];
-uint16 rcvBufferSize;
-
-uint8 frameID = 1;
-
-void ReceiveFrame()
+bool ReceiveFrame(uint8_t *buf, uint16_t *len)
 {
 	// Omit all bytes before frame delimiter
-	while (ReceiveByte() != 0x7e);
+	*len = 0;
+	while (ReceiveByte() != StartDelimiter);
 	// Receive frame size
-	((uint8 *)&rcvBufferSize)[1] = ReceiveByte();
-	((uint8 *)&rcvBufferSize)[0] = ReceiveByte();
+	SET_BYTE(*len, 0, (uint16_t)ReceiveByte());
+	SET_BYTE(*len, 1, (uint16_t)ReceiveByte());
 	// Receive frame data
-	uint8 checksum = 0;
-	for (uint16 i = 0; i < rcvBufferSize; i++)
+	uint8_t checksum = 0;
+	for (uint16_t i = 0; i < *len; i++)
 	{
-		rcvBuffer[i] = ReceiveByte();
-		checksum += rcvBuffer[i];
+		buf[i] = ReceiveByte();
+		checksum += buf[i];
 	}
 	// Receive and check checksum
 	checksum += ReceiveByte();
 	if (checksum != 0xff)
-		rcvBufferSize = 0;
-}
-
-// --------- Service commands ---------
-
-int32 AtCommand(const char *cmd, int32 param=-1)
-{
-	sndBuffer[0] = 0x08;	// AT command
-	sndBuffer[1] = frameID;
-	sndBuffer[2] = cmd[0];
-	sndBuffer[3] = cmd[1];
-	sndBufferSize = 4;
-	if (param != -1)
 	{
-		if ((((uint8 *)&param)[3] != 0) || (((uint8 *)&param)[2] != 0))
-		{
-			// Send parameter as 32-bit
-			sndBuffer[4] = ((uint8 *)&param)[3];
-			sndBuffer[5] = ((uint8 *)&param)[2];
-			sndBuffer[6] = ((uint8 *)&param)[1];
-			sndBuffer[7] = ((uint8 *)&param)[0];
-			sndBufferSize += 4;
-		}
-		else if (((uint8 *)&param)[1] != 0)
-		{
-			// Send parameter as 16-bit
-			sndBuffer[4] = ((uint8 *)&param)[1];
-			sndBuffer[5] = ((uint8 *)&param)[0];
-			sndBufferSize += 2;
-		}
-		else
-		{
-			// Send parameter as 8-bit
-			sndBuffer[4] = ((uint8 *)&param)[0];
-			sndBufferSize += 1;
-		}
+		*len = 0;
+		return false;
 	}
-	ShowBuffer(sndBuffer, sndBufferSize);
-	SendFrame();
-
-	ReceiveFrame();
-	ShowBuffer(rcvBuffer, rcvBufferSize);
-	if (rcvBufferSize < 5)
-		return -1;
-	if ((rcvBuffer[0] != 0x88) || // AT command response
-		(rcvBuffer[1] != frameID) ||
-		(rcvBuffer[2] != cmd[0]) ||
-		(rcvBuffer[3] != cmd[1]) ||
-		(rcvBuffer[4] != 0))	// OK
-		return -1;
-	frameID = (frameID == 0xff) ? 1 : (frameID + 1);
-
-	int32 result = 0;
-	for (uint16 i = 0; i < rcvBufferSize - 5; i++)
-		((uint8 *)&result)[i] = rcvBuffer[rcvBufferSize - i - 1];
-	return result;
-}
-
-bool Transmit(uint8 *buf, uint16 bufSize, uint64 destAddress=0)
-{
-	sndBuffer[0] = 0x10;	// ZigBee transmit request
-	sndBuffer[1] = frameID;
-	for (uint16 i = 0; i < 8; i++)
-		sndBuffer[2 + i] = ((uint8 *)&destAddress)[8 - i - 1];
-	sndBuffer[10] = 0xff; // 16 bit destination address MSB, if known
-	sndBuffer[11] = 0xfe; // 16 bit destination address LSB, if known
-	sndBuffer[12] = 0x00; // Broadcast radius
-	sndBuffer[13] = 0x00; // Options
-	for (uint16 i = 0; i < bufSize; i++)
-		sndBuffer[14 + i] = buf[i];
-	sndBufferSize = 14 + bufSize;
-	ShowBuffer(sndBuffer, sndBufferSize);
-	SendFrame();
-
-	ReceiveFrame();
-	ShowBuffer(rcvBuffer, rcvBufferSize);
-
-	frameID = (frameID == 0xff) ? 1 : (frameID + 1);
-
 	return true;
 }
 
-bool TransmitStr(char *str, uint64 destAddress=0)
+bool AtCommand(const char *cmd, const uint32_t *param=NULL, uint32_t *result=NULL)
 {
-	return Transmit((uint8 *)str, strlen(str) + 1, destAddress);
+	uint8_t buf[100];
+	uint16_t len = 0;
+	buf[len++] = 0x08;	// AT command
+	buf[len++] = frameID;
+	buf[len++] = cmd[0];
+	buf[len++] = cmd[1];
+	if (param != NULL)
+	{
+		for (uint16_t i = 0; i < sizeof(uint32_t); i++)
+			buf[len++] = GET_BYTE(*param, i);
+	}
+	HexDump(buf, len);
+	SendFrame(buf, len);
+
+	if (!ReceiveFrame(buf, &len))
+		return false;
+	HexDump(buf, len);
+	if (len < 5)
+		return false;
+	if ((buf[0] != 0x88) || // AT command response
+		(buf[1] != frameID) ||
+		(buf[2] != cmd[0]) ||
+		(buf[3] != cmd[1]) ||
+		(buf[4] != 0))	// OK
+		return false;
+	if (result != NULL)
+	{
+		*result = 0;
+		// Just use lower 32 bits; 64 bit support in Arduino seems incomplete
+		for (uint16_t i = 0; i < min(sizeof(uint32_t), len - 5); i++)
+			SET_BYTE(*result, i, (uint32_t)buf[len - (5-1) + i]);
+	}
+
+	UPDATE_FRAMEID();
+	return true;
 }
 
 void setup()
 {
 	Serial.begin(9600);
-
 	Serial1.begin(9600);
-	AtCommand("ID", 0x2001);
 }
 
 void loop()
 {
-	TransmitStr("AAA");
+	uint32_t id=0x2001;
+	AtCommand("ID", &id);
+	delay(3000);
+
+	AtCommand("SL", NULL, &id);
+	Serial.println(id, HEX);
 	delay(3000);
 }
-
