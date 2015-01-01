@@ -11,6 +11,11 @@
 uint8_t frameID = 1;
 #define UPDATE_FRAMEID()	{frameID = (frameID == 0xff) ? 1 : (frameID + 1);}
 
+#define AT_COMMAND	0x08
+#define AT_COMMAND_RESPONSE	0x88
+#define ZIGBEE_TRANSMIT_REQUEST	0x10
+#define ZIGBEE_TRANSMIT_STATUS	0x8B
+
 
 
 void HexDump(uint8_t *buf, uint16_t len)
@@ -89,10 +94,11 @@ bool AtCommand(const char *cmd, const uint32_t *param=NULL, uint32_t *result=NUL
 {
 	uint8_t buf[100];
 	uint16_t len = 0;
-	buf[len++] = 0x08;	// AT command
-	buf[len++] = frameID;
-	buf[len++] = cmd[0];
-	buf[len++] = cmd[1];
+	buf[0] = AT_COMMAND;
+	buf[1] = frameID;
+	buf[2] = cmd[0];
+	buf[3] = cmd[1];
+	len = 4;
 	if (param != NULL)
 	{
 		for (uint16_t i = 0; i < sizeof(uint32_t); i++)
@@ -106,7 +112,7 @@ bool AtCommand(const char *cmd, const uint32_t *param=NULL, uint32_t *result=NUL
 	HexDump(buf, len);
 	if (len < 5)
 		return false;
-	if ((buf[0] != 0x88) || // AT command response
+	if ((buf[0] != AT_COMMAND_RESPONSE) ||
 		(buf[1] != frameID) ||
 		(buf[2] != cmd[0]) ||
 		(buf[3] != cmd[1]) ||
@@ -124,19 +130,55 @@ bool AtCommand(const char *cmd, const uint32_t *param=NULL, uint32_t *result=NUL
 	return true;
 }
 
+bool Transmit(uint8_t *buf, uint16_t len, uint64_t address=0)
+{
+	uint8_t xferBuf[100];
+	xferBuf[0] = ZIGBEE_TRANSMIT_REQUEST;
+	xferBuf[1] = frameID;
+	for (uint16_t i = 0; i < 8; i++)
+		xferBuf[2 + i] = GET_BYTE(address, i);
+	xferBuf[10] = 0xff; // 16 bit destination address MSB, if known
+	xferBuf[11] = 0xfe; // 16 bit destination address LSB, if known
+	xferBuf[12] = 0x00; // Broadcast radius
+	xferBuf[13] = 0x00; // Options
+	for (uint16_t i = 0; i < len; i++)
+		xferBuf[14 + i] = buf[i];
+	HexDump(xferBuf, 14 + len);
+	SendFrame(xferBuf, 14 + len);
+
+	if (!ReceiveFrame(xferBuf, &len))
+		return false;
+	HexDump(xferBuf, len);
+	if (len != 7)
+		return false;
+	if ((xferBuf[0] != ZIGBEE_TRANSMIT_STATUS) ||
+		(xferBuf[1] != frameID) ||
+		(xferBuf[5] != 0))	// OK
+		return false;
+
+	UPDATE_FRAMEID();
+	return true;
+}
+
+bool TransmitStr(char *str, uint64_t destAddress=0)
+{
+	return Transmit((uint8_t *)str, strlen(str) + 1, destAddress);
+}
+
 void setup()
 {
 	Serial.begin(9600);
+
 	Serial1.begin(9600);
+	uint32_t id=0x2001;
+	AtCommand("ID", &id);
 }
 
 void loop()
 {
-	uint32_t id=0x2001;
-	AtCommand("ID", &id);
+	uint32_t sl;
+	Serial.println(AtCommand("SL", NULL, &sl));
 	delay(3000);
-
-	AtCommand("SL", NULL, &id);
-	Serial.println(id, HEX);
+	Serial.println(TransmitStr("AAA"));
 	delay(3000);
 }
