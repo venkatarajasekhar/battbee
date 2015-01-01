@@ -1,13 +1,21 @@
+#include "XBee.h"
+
+
+
 // MSB..LSB addressed by index 0..n; modify for big/small endian systems
 #define GET_BYTE(X, I)		(((X) >> ((sizeof(X) - (I) - 1) << 3)) & 0xff)
 #define SET_BYTE(X, I, B)	((X) |= ((B) << ((sizeof(X) - (I) - 1) << 3)))
 
-void XBeeSend(uint8_t value)
+
+
+static void XBeeSend(uint8_t value)
 {
 	Serial1.write(value);
 }
 
-uint8_t XBeeRecv()
+
+
+static uint8_t XBeeRecv()
 {
 	while (true)
 	{
@@ -19,7 +27,9 @@ uint8_t XBeeRecv()
 	}
 }
 
-bool XBeeTransmit(const uint8_t *buf, uint16_t len, uint64_t address=0)
+
+
+bool XBeeTransmit(const uint8_t *buf, uint16_t len, uint64_t address)
 {
 	// Send transmit request
 	XBeeSend(0x7e);	// Start delimiter
@@ -77,14 +87,3 @@ bool XBeeTransmit(const uint8_t *buf, uint16_t len, uint64_t address=0)
 	return success;
 }
 
-void setup()
-{
-	//Serial.begin(9600);
-	Serial1.begin(9600);
-}
-
-void loop()
-{
-	XBeeTransmit((uint8_t *)"AAA", 4);
-	delay(3000);
-}
