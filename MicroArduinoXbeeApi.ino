@@ -1,184 +1,90 @@
-#include <Arduino.h>
-
-
-
-#define StartDelimiter 0x7e
-
 // MSB..LSB addressed by index 0..n; modify for big/small endian systems
 #define GET_BYTE(X, I)		(((X) >> ((sizeof(X) - (I) - 1) << 3)) & 0xff)
 #define SET_BYTE(X, I, B)	((X) |= ((B) << ((sizeof(X) - (I) - 1) << 3)))
 
-uint8_t frameID = 1;
-#define UPDATE_FRAMEID()	{frameID = (frameID == 0xff) ? 1 : (frameID + 1);}
-
-#define AT_COMMAND	0x08
-#define AT_COMMAND_RESPONSE	0x88
-#define ZIGBEE_TRANSMIT_REQUEST	0x10
-#define ZIGBEE_TRANSMIT_STATUS	0x8B
-
-
-
-void HexDump(uint8_t *buf, uint16_t len)
-{
-	for (uint16_t i = 0; i < len; i++)
-	{
-		Serial.print(buf[i], HEX);
-		Serial.print(" ");
-	}
-	Serial.print(" -> ");
-	Serial.print(len);
-	Serial.println(" bytes in total");
-}
-
-void SendByte(uint8_t value)
+void XBeeSend(uint8_t value)
 {
 	Serial1.write(value);
 }
 
-void SendFrame(uint8_t *buf, uint16_t len)
-{
-	// Send frame delimiter
-	SendByte(StartDelimiter);
-	// Send frame size
-	SendByte(GET_BYTE(len, 0));
-	SendByte(GET_BYTE(len, 1));
-	// Send frame data
-	uint8_t checksum = 0;
-	for (uint16_t i = 0; i < len; i++)
-	{
-		SendByte(buf[i]);
-		checksum += buf[i];
-	}
-	// Send checksum
-	SendByte(((uint8_t)0xff) - checksum);
-}
-
-uint8_t ReceiveByte()
+uint8_t XBeeRecv()
 {
 	while (true)
 	{
 		int value = Serial1.read();
 		if (value == -1)
-			delay(10);
+			delay(1);
 		else
 			return (uint8_t)value;
 	}
 }
 
-bool ReceiveFrame(uint8_t *buf, uint16_t *len)
+bool XBeeTransmit(const uint8_t *buf, uint16_t len, uint64_t address=0)
 {
-	// Omit all bytes before frame delimiter
-	*len = 0;
-	while (ReceiveByte() != StartDelimiter);
-	// Receive frame size
-	SET_BYTE(*len, 0, (uint16_t)ReceiveByte());
-	SET_BYTE(*len, 1, (uint16_t)ReceiveByte());
-	// Receive frame data
-	uint8_t checksum = 0;
-	for (uint16_t i = 0; i < *len; i++)
+	// Send transmit request
+	XBeeSend(0x7e);	// Start delimiter
+	uint16_t totalLen = len + 14;
+	XBeeSend(GET_BYTE(totalLen, 0));	// Length MSB
+	XBeeSend(GET_BYTE(totalLen, 1));	// Length LSB
+	static uint8_t frameID = 1;
+	uint8_t checksum = 0x10 + frameID + 0xff + 0xfe + 0x00 + 0x00;
+	XBeeSend(0x10);	// Frame type: ZigBee Transmit Request
+	XBeeSend(frameID);	// Frame ID
+	for (uint16_t i = 0; i < 8; i++)
 	{
-		buf[i] = ReceiveByte();
+		uint8_t value = GET_BYTE(address, i); // 64 bit destination address: MSB..LSB
+		XBeeSend(value);
+		checksum += value;
+	}
+	XBeeSend(0xff);	// 16-bit destination address MSB: Unknown
+	XBeeSend(0xfe);	// 16-bit destination address LSB
+	XBeeSend(0x00);	// Broadcast radius
+	XBeeSend(0x00);	// Options
+	for (uint16_t i = 0; i < len; i++)
+	{
+		XBeeSend(buf[i]);	// RF data
 		checksum += buf[i];
 	}
-	// Receive and check checksum
-	checksum += ReceiveByte();
-	if (checksum != 0xff)
+	XBeeSend(0xff - checksum);	// Checksum
+
+	// Receive frames util we get the transmit status 
+	bool exitLoop, success;
+	while (true)
 	{
-		*len = 0;
-		return false;
+		// Omit all bytes before frame delimiter
+		while (XBeeRecv() != 0x7e);
+		exitLoop = true; success = true;	// Be optimistic ...
+		totalLen = 0;
+		SET_BYTE(totalLen, 0, (uint16_t)XBeeRecv());	// Length MSB
+		SET_BYTE(totalLen, 1, (uint16_t)XBeeRecv());	// Length LSB
+		if (totalLen != 7)	// Size of answer
+			exitLoop = false;
+		for (uint16_t i = 0; i < totalLen; i++)
+		{
+			uint8_t value = XBeeRecv();
+			if ((i == 0) && (value != 0x8b))	// Frame type: ZigBee Transmit Status
+				exitLoop = false;
+			if ((i == 1) && (value != frameID))	// Correct Frame ID
+				exitLoop = false;
+			if (i == 5)
+				success = (value == 0); // Delivery Status: OK
+		}
+		XBeeRecv();	// Checksum
+		if (exitLoop)
+			break;
 	}
-	return true;
-}
-
-bool AtCommand(const char *cmd, const uint32_t *param=NULL, uint32_t *result=NULL)
-{
-	uint8_t buf[100];
-	uint16_t len = 0;
-	buf[0] = AT_COMMAND;
-	buf[1] = frameID;
-	buf[2] = cmd[0];
-	buf[3] = cmd[1];
-	len = 4;
-	if (param != NULL)
-	{
-		for (uint16_t i = 0; i < sizeof(uint32_t); i++)
-			buf[len++] = GET_BYTE(*param, i);
-	}
-	HexDump(buf, len);
-	SendFrame(buf, len);
-
-	if (!ReceiveFrame(buf, &len))
-		return false;
-	HexDump(buf, len);
-	if (len < 5)
-		return false;
-	if ((buf[0] != AT_COMMAND_RESPONSE) ||
-		(buf[1] != frameID) ||
-		(buf[2] != cmd[0]) ||
-		(buf[3] != cmd[1]) ||
-		(buf[4] != 0))	// OK
-		return false;
-	if (result != NULL)
-	{
-		*result = 0;
-		// Just use lower 32 bits; 64 bit support in Arduino seems incomplete
-		for (uint16_t i = 0; i < min(sizeof(uint32_t), len - 5); i++)
-			SET_BYTE(*result, i, (uint32_t)buf[len - (5-1) + i]);
-	}
-
-	UPDATE_FRAMEID();
-	return true;
-}
-
-bool Transmit(uint8_t *buf, uint16_t len, uint64_t address=0)
-{
-	uint8_t xferBuf[100];
-	xferBuf[0] = ZIGBEE_TRANSMIT_REQUEST;
-	xferBuf[1] = frameID;
-	for (uint16_t i = 0; i < 8; i++)
-		xferBuf[2 + i] = GET_BYTE(address, i);
-	xferBuf[10] = 0xff; // 16 bit destination address MSB, if known
-	xferBuf[11] = 0xfe; // 16 bit destination address LSB, if known
-	xferBuf[12] = 0x00; // Broadcast radius
-	xferBuf[13] = 0x00; // Options
-	for (uint16_t i = 0; i < len; i++)
-		xferBuf[14 + i] = buf[i];
-	HexDump(xferBuf, 14 + len);
-	SendFrame(xferBuf, 14 + len);
-
-	if (!ReceiveFrame(xferBuf, &len))
-		return false;
-	HexDump(xferBuf, len);
-	if (len != 7)
-		return false;
-	if ((xferBuf[0] != ZIGBEE_TRANSMIT_STATUS) ||
-		(xferBuf[1] != frameID) ||
-		(xferBuf[5] != 0))	// OK
-		return false;
-
-	UPDATE_FRAMEID();
-	return true;
-}
-
-bool TransmitStr(char *str, uint64_t destAddress=0)
-{
-	return Transmit((uint8_t *)str, strlen(str) + 1, destAddress);
+	frameID = (frameID == 0xff) ? 1 : (frameID + 1);
+	return success;
 }
 
 void setup()
 {
-	Serial.begin(9600);
-
+	//Serial.begin(9600);
 	Serial1.begin(9600);
-	uint32_t id=0x2001;
-	AtCommand("ID", &id);
 }
 
 void loop()
 {
-	uint32_t sl;
-	Serial.println(AtCommand("SL", NULL, &sl));
-	delay(3000);
-	Serial.println(TransmitStr("AAA"));
+	XBeeTransmit((uint8_t *)"AAA", 4);
 	delay(3000);
 }
