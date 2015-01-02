@@ -29,6 +29,11 @@ tool. Under Linux
 
 ### Links
 
+* [How to Run an Arduino for Years on a Battery](http://www.openhomeautomation.net/arduino-battery/)
+* [Hush little microprocessor… AVR and Arduino sleep mode basics](http://www.engblaze.com/hush-little-microprocessor-avr-and-arduino-sleep-mode-basics/)
+* [JeeNode](http://jeelabs.net/projects/hardware/wiki/JeeNode)
+* [Serving Raspberry Pi with Flask](http://mattrichardson.com/Raspberry-Pi-Flask/)
+
 ### Books
 
 Robert Faludi: Building Wireless Sensor Networks, [O'Reilly Media](http://shop.oreilly.com/product/9780596807740.do)
