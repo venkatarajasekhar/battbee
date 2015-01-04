@@ -10,7 +10,7 @@
 
 static void XBeeSend(uint8_t value)
 {
-	Serial1.write(value);
+	Serial.write(value);
 }
 
 
@@ -19,7 +19,7 @@ static uint8_t XBeeRecv()
 {
 	while (true)
 	{
-		int value = Serial1.read();
+		int value = Serial.read();
 		if (value == -1)
 			delay(1);
 		else
