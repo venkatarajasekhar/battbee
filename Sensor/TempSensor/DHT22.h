@@ -11,12 +11,13 @@ class DHT22
 {
 	public:
 
-		DHT22(uint8_t pin);
+		DHT22(uint8_t powerPin, uint8_t ioPin);
 		bool Read(int16_t &temperature, int16_t &humidity);
 
 	private:
 
-		uint8_t _pin;
+		uint8_t powerPin;
+		uint8_t ioPin;
 };
 
 

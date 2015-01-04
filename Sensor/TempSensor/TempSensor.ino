@@ -1,7 +1,7 @@
 //#include "XBee.h"
 #include "DHT22.h"
 
-DHT22 dht(4);
+DHT22 dht(5, 4);
 
 void setup()
 {
