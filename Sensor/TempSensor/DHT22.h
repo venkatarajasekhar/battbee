@@ -12,7 +12,7 @@ class DHT22
 	public:
 
 		DHT22(uint8_t pin);
-		bool Read(float &temperature, float &humidity);
+		bool Read(int16_t &temperature, int16_t &humidity);
 
 	private:
 

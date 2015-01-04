@@ -13,8 +13,8 @@ void loop()
 	//XBeeTransmit((uint8_t *)"AAA", 4);
 	//delay(3000);
 
-	float h;
-	float t;
+	int16_t h;
+	int16_t t;
 	if (!dht.Read(t, h))
 	{
 		Serial.println("Failed to read from DHT");

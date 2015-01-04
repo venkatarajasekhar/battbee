@@ -11,7 +11,7 @@ DHT22::DHT22(uint8_t pin)
 
 
 
-bool DHT22::Read(float &temperature, float &humidity)
+bool DHT22::Read(int16_t &temperature, int16_t &humidity)
 {
 	uint8_t laststate = HIGH;
 	uint8_t counter = 0;
@@ -63,17 +63,13 @@ bool DHT22::Read(float &temperature, float &humidity)
 
 	if (j != 40)	// 40 bits = 5 bytes read?
 		return false;
-
 	if (data[4] != ((data[0] + data[1] + data[2] + data[3]) & 0xFF)) // CRC
 		return false;
 
 	humidity = (data[0] << 8) | data[1];
-	humidity /= 10;
-
 	temperature = ((data[2] & 0x7F) << 8) |  data[3];
-	temperature /= 10;
 	if (data[2] & 0x80)
-		temperature *= -1;
+		temperature = -temperature;
 
 	return true;
 }
