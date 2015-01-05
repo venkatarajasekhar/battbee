@@ -16,7 +16,21 @@ to build a battery-powered wireless sensor mesh network.
 ## Configure XBee modules
 
 Use the [X-CTU](http://www.digi.com/products/wireless-wired-embedded-solutions/zigbee-rf-modules/xctu)
-tool. Under Linux
+tool to configure the XBee modules. Under Linux install *X-CTU* in version
+5.2.8.6 (the Next Generation XCTU does not support user added COM ports by
+now) using *wine* with
+
+	wine 40003002_C.exe
+
+create a link to XBee USB device
+
+	ln -s /dev/ttyUSB0 ~/.wine/dosdevices/com5
+
+and start X-CTU with
+
+	wine ~/.wine/drive_c/Program\ Files\ \(x86\)/Digi/XCTU/X-CTU.exe
+
+Under *User Com Ports* add COM5 and you are ready to use the X-CTU tool.
 
 ### Modem XB24-Z7WIT-004
 
@@ -31,7 +45,7 @@ tool. Under Linux
 
 * [How to Run an Arduino for Years on a Battery](http://www.openhomeautomation.net/arduino-battery/)
 * [Hush little microprocessor… AVR and Arduino sleep mode basics](http://www.engblaze.com/hush-little-microprocessor-avr-and-arduino-sleep-mode-basics/)
-* [JeeNode](http://jeelabs.net/projects/hardware/wiki/JeeNode)
+* [JeeNode](http://jeelabs.org/category/software/)
 * [Serving Raspberry Pi with Flask](http://mattrichardson.com/Raspberry-Pi-Flask/)
 
 ### Books
