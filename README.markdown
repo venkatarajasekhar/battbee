@@ -45,6 +45,7 @@ Under *User Com Ports* add COM5 and you are ready to use the X-CTU tool.
 
 * [How to Run an Arduino for Years on a Battery](http://www.openhomeautomation.net/arduino-battery/)
 * [Hush little microprocessor… AVR and Arduino sleep mode basics](http://www.engblaze.com/hush-little-microprocessor-avr-and-arduino-sleep-mode-basics/)
+* [Power saving techniques for microprocessors](http://www.gammon.com.au/forum/?id=11497)
 * [JeeNode](http://jeelabs.org/category/software/)
 * [Serving Raspberry Pi with Flask](http://mattrichardson.com/Raspberry-Pi-Flask/)
 
