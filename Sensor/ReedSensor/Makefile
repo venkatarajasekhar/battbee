@@ -1,11 +1,11 @@
 CC=avr-gcc
-CFLAGS=-c -Os -mmcu=atmega328p -W -Wall
+CFLAGS=-c -Os -mmcu=atmega328p -W -Wall -std=c11
 DEFINES=-DF_CPU=16000000UL -DBAUDRATE=9600
 LFLAGS=-mmcu=atmega328p
 OBJCOPY=avr-objcopy
 AVRDUDE=avrdude
 
-SOURCES=main.c serial.c
+SOURCES=main.c xbee.c serial.c
 OBJECTS=$(SOURCES:.c=.o)
 PROG=main
 

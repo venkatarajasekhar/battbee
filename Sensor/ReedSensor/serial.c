@@ -1,5 +1,3 @@
-#include <avr/io.h>
-
 #include "serial.h"
 
 
