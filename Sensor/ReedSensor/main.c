@@ -22,6 +22,7 @@ void sleep_until_keypressed()
 	BIT_SET(EIMSK, INT0); // Turn on INT0
 
 	// Shut down as much as possible and sleep
+	BIT_SET(PORTD, PD3);	// XBee: Set HIGH to sleep
 	BIT_CLEAR(ADCSRA, ADEN);	// Disable ADC
  	power_all_disable();	// Disable Timer/Counter, USART, I2C, SPI, ...
 	set_sleep_mode(SLEEP_MODE_PWR_DOWN);  
@@ -34,22 +35,24 @@ void sleep_until_keypressed()
 	// Wake up and enable just what we need
 	sleep_disable();	// Wake up
 	power_usart0_enable();	// Enable USART0
+	BIT_CLEAR(PORTD, PD3);	// Set LOW to wake up
 }
 
 int main()
 {
 	xbee_init();
 
-	DDRD &= 0b00000011;	// Set pin 2..7 as input with pullup
-	PORTD |= 0b11111100;
+	DDRD &= 0b00000011;	// Set pin 2,4..7 as input with pullup
+	PORTD |= 0b11110100;
 	DDRB = 0b00000000;	// Set pin 8..13 as input  with pullup
 	PORTB |= 0b11111111;
+
+	BIT_SET(DDRD, PD3);
 
 	while(1)
 	{
 		sleep_until_keypressed();
 		xbee_sendstr("Someone pressed the button!\n", 0);
-		_delay_ms(3000);
 	}
 	return 0;
 }
