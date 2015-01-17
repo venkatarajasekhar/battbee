@@ -34,10 +34,29 @@ Under *User Com Ports* add COM5 and you are ready to use the X-CTU tool.
 
 ### Modem XB24-Z7WIT-004
 
-| Modem | XB24-ZB |
-| Function Set | e.g. Zigbee Coordinator **API** |
-| Networking -> PAN ID | e.g. 2001 |
-| Serial Interfacing -> API Enable | 1 |
+#### Coordinator
+
+* Modem: XB24-ZB
+* Function Set: Zigbee Coordinator **API**
+* Networking: PAN ID = 2001
+* Serial Interfacing: API Enable = 1
+* Sleep Modes: SP - Cyclic Sleep Period = AF0;
+	SN - Number of Cyclic Sleep Periods = FFFF;
+	Gives a maximum "Child Poll Timeout" of 63.7 days (see below)
+
+	Set/read the number of cyclic sleep periods used to calculate end device poll
+	timeout.  If an end device does not send a poll request to its parent coordinator
+	or router within the poll timeout, the end device is removed from the child table.
+	The poll timeout is calculated in milliseconds as (3 * SN * (SP * 10ms)), minimum
+	of 5 seconds.  i.e. if SN=15, SP=0x64, the timeout is 45 seconds.
+
+#### End Device
+
+* Modem: XB24-ZB
+* Function Set: Zigbee End Device **API**
+* Networking: PAN ID = 2001
+* Serial Interfacing: API Enable = 1
+* Sleep Modes: SM - Sleep Mode = Pin Hibernate (1)
 
 ## References
 
