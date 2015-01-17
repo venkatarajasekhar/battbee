@@ -52,6 +52,7 @@ int main()
 	while(1)
 	{
 		sleep_until_keypressed();
+		_delay_ms(100);
 		xbee_sendstr("Someone pressed the button!\n", 0);
 	}
 	return 0;
