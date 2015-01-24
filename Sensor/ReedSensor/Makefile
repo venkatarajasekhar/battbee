@@ -10,9 +10,13 @@ OBJECTS=$(SOURCES:.c=.o)
 PROG=main
 
 
-.PHONY: flash
-flash: $(PROG).hex
-	$(AVRDUDE) -F -V -c arduino -p ATMEGA328P -P /dev/ttyACM0 -b 115200 -U flash:w:$(PROG).hex
+.PHONY: flash_usbtiny
+flash_usbtiny: $(PROG).hex
+	$(AVRDUDE) -c usbtiny -p atmega328p -U flash:w:$(PROG).hex
+
+.PHONY: flash_direct
+flash_direct: $(PROG).hex
+	$(AVRDUDE) -c arduino -p atmega328p -P /dev/ttyACM0 -b 115200 -U flash:w:$(PROG).hex
 
 $(PROG).hex: $(PROG)
 	$(OBJCOPY) -O ihex -R .eeprom $(PROG) $@
