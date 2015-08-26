@@ -9,6 +9,7 @@ void serial_init()
 	UBRR0L = (uint8_t)(baud_prescaler & 0xff);
 	UCSR0B = (1 << RXEN0) | (1 << TXEN0);
 	UCSR0C = (3 << UCSZ00);
+	return;
 }
 
 
@@ -25,6 +26,7 @@ void serial_send(uint8_t value)
 { 
 	while (!(UCSR0A & (1 << UDRE0)));
 	UDR0 = value;
+	return;
 }
 
 
@@ -44,4 +46,5 @@ void serial_sendstr(char* str)
 		}
 		str++;
 	}
+	return;
 }
