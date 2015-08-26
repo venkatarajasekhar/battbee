@@ -6,7 +6,7 @@
 #define GET_BYTE(X, I)		(((X) >> ((sizeof(X) - (I) - 1) << 3)) & 0xff)
 #define SET_BYTE(X, I, B)	((X) |= ((B) << ((sizeof(X) - (I) - 1) << 3)))
 
-
+typedef namespace{
 
 static void XBeeSend(uint8_t value)
 {
@@ -31,12 +31,15 @@ static uint8_t XBeeRecv()
 
 bool XBeeTransmit(const uint8_t *buf, uint16_t len, uint64_t address)
 {
+	uint16_t totalLen = len + 14;
+	static uint8_t frameID = 1;
+	
 	// Send transmit request
 	XBeeSend(0x7e);	// Start delimiter
-	uint16_t totalLen = len + 14;
+	
 	XBeeSend(GET_BYTE(totalLen, 0));	// Length MSB
 	XBeeSend(GET_BYTE(totalLen, 1));	// Length LSB
-	static uint8_t frameID = 1;
+	
 	uint8_t checksum = 0x10 + frameID + 0xff + 0xfe + 0x00 + 0x00;
 	XBeeSend(0x10);	// Frame type: ZigBee Transmit Request
 	XBeeSend(frameID);	// Frame ID
@@ -87,3 +90,4 @@ bool XBeeTransmit(const uint8_t *buf, uint16_t len, uint64_t address)
 	return success;
 }
 
+}XbeeTempSensor;
