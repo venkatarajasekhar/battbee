@@ -38,7 +38,7 @@ bool xbee_send(const uint8_t *buf, uint16_t len, uint64_t address)
 	serial_send(frameID);	// Frame ID
 	for ( indx = 0; indx < 8; indx++)
 	{
-		value = GET_BYTE(address, i); // 64 bit destination address: MSB..LSB
+		value = GET_BYTE(address, indx); // 64 bit destination address: MSB..LSB
 		serial_send(value);
 		checksum += value;
 	}
@@ -67,7 +67,7 @@ bool xbee_send(const uint8_t *buf, uint16_t len, uint64_t address)
 		SET_BYTE(totalLen, 1, (uint16_t)serial_receive());	// Length LSB
 		if (totalLen != 7)	// Size of answer
 			exitLoop = false;
-		for ( idx = 0; idx < totalLen; i++)
+		for ( idx = 0; idx < totalLen; idx++)
 		{
 			SerReceiveData = serial_receive();
 			if ((idx == 0) && (value != 0x8b))	// Frame type: ZigBee Transmit Status
@@ -89,5 +89,8 @@ bool xbee_send(const uint8_t *buf, uint16_t len, uint64_t address)
 
 bool xbee_sendstr(const char *str, uint64_t address)
 {
+        bool XbeeData = FALSE;
+        if(str)
 	return xbee_send((uint8_t *)str, strlen(str), address);
+	return XbeeData;
 }
