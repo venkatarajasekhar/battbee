@@ -4,7 +4,17 @@
 
 
 #include "Arduino.h"
+#include <iostream>
+#include <exception>
+using namespace std;
 
+class Exception : public exception
+{
+  const char * what () const throw ()
+  {
+    return "C++ Exception";
+  }
+};
 
 
 class DHT22
